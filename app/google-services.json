@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "246055658343",
+    "project_id": "rentwave-ica",
+    "storage_bucket": "rentwave-ica.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:246055658343:android:404bedcce5aba2d21f05c2",
+        "android_client_info": {
+          "package_name": "uk.ac.tees.mad.e4611415.rentwave"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTsI6Y5OOZMGNDJCH6oMmu-WwGVkLCrY4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
