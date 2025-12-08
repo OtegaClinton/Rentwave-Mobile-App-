@@ -4,7 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
 
-
 }
 
 android {
@@ -86,6 +85,8 @@ dependencies {
 
 
     implementation("io.coil-kt:coil-compose:2.5.0")
+
+    implementation("com.google.firebase:firebase-functions-ktx:21.0.0")
 
 
 
