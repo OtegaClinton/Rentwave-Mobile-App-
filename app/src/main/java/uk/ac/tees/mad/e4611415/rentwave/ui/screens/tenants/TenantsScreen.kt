@@ -1,6 +1,5 @@
 package uk.ac.tees.mad.e4611415.rentwave.ui.screens.tenants
 
-// Required imports
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -29,51 +28,37 @@ fun TenantsScreen(navController: NavHostController) {
     val db = FirebaseFirestore.getInstance()
     val userId = FirebaseAuth.getInstance().currentUser?.uid
 
-    // Store tenants list including ID + property name
     var tenants by remember { mutableStateOf(listOf<Map<String, Any>>()) }
-
-    // Show spinner while loading
     var isLoading by remember { mutableStateOf(true) }
 
-    /**
-     * Load all tenants where propertyId belongs to this landlord.
-     * Also fetch property names and attach them to each tenant.
-     */
     LaunchedEffect(userId) {
         userId?.let { uid ->
 
-            // Fetch properties owned by landlord
             db.collection("properties")
                 .whereEqualTo("landlordId", uid)
                 .get()
-                .addOnSuccessListener { propertySnapshot ->
+                .addOnSuccessListener { propertySnap ->
 
-                    // Build a simple map: propertyId -> propertyName
                     val propertyMap = mutableMapOf<String, String>()
-                    for (doc in propertySnapshot.documents) {
-                        val id = doc.id
-                        val name = doc.getString("name") ?: "Unknown Property"
-                        propertyMap[id] = name
+                    for (doc in propertySnap.documents) {
+                        propertyMap[doc.id] = doc.getString("name") ?: "Unknown Property"
                     }
 
                     val propertyIds = propertyMap.keys.toList()
 
                     if (propertyIds.isNotEmpty()) {
-
-                        // Fetch tenants assigned to these properties
                         db.collection("tenants")
                             .whereIn("propertyId", propertyIds)
                             .get()
-                            .addOnSuccessListener { tenantSnapshot ->
+                            .addOnSuccessListener { tenantSnap ->
 
-                                tenants = tenantSnapshot.documents.map { doc ->
+                                tenants = tenantSnap.documents.map { doc ->
                                     val data = doc.data ?: emptyMap<String, Any>()
                                     val pId = data["propertyId"]?.toString()
 
-                                    // Merge tenant data + id + propertyName for UI
                                     data + mapOf(
                                         "id" to doc.id,
-                                        "propertyName" to (propertyMap[pId] ?: "Unknown")
+                                        "propertyName" to (propertyMap[pId] ?: "Unknown Property")
                                     )
                                 }
 
@@ -83,9 +68,7 @@ fun TenantsScreen(navController: NavHostController) {
                                 Toast.makeText(context, "Failed to load tenants", Toast.LENGTH_SHORT).show()
                                 isLoading = false
                             }
-
                     } else {
-                        // Landlord has no properties yet
                         tenants = emptyList()
                         isLoading = false
                     }
@@ -97,18 +80,13 @@ fun TenantsScreen(navController: NavHostController) {
         }
     }
 
-    // TopBar + Add Tenant button
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Your Tenants", color = MaterialTheme.colorScheme.onPrimary) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = MaterialTheme.colorScheme.onPrimary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -116,7 +94,6 @@ fun TenantsScreen(navController: NavHostController) {
                 )
             )
         },
-
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate(Screen.AddTenant.route) },
@@ -133,50 +110,52 @@ fun TenantsScreen(navController: NavHostController) {
                 .padding(padding)
                 .padding(16.dp)
         ) {
-
             when {
-                // Loading spinner
-                isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
+                isLoading ->
+                    CircularProgressIndicator(Modifier.align(Alignment.Center))
 
-                // Message when there are zero tenants
-                tenants.isEmpty() -> Text(
-                    text = "You haven't added any tenants yet.",
-                    modifier = Modifier.align(Alignment.Center),
-                    style = MaterialTheme.typography.titleMedium
-                )
+                tenants.isEmpty() ->
+                    Text(
+                        text = "You haven't added any tenants yet.",
+                        modifier = Modifier.align(Alignment.Center),
+                        style = MaterialTheme.typography.titleMedium
+                    )
 
-                // Show tenant list
-                else -> LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(tenants) { tenant ->
+                else ->
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        items(tenants) { tenant ->
 
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    // Navigate to Tenant Details screen with tenantId
-                                    navController.navigate(
-                                        Screen.TenantDetails.passId(tenant["id"].toString())
-                                    )
-                                },
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-
-                                Text(
-                                    text = "${tenant["firstName"]} ${tenant["lastName"]}",
-                                    fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.titleMedium
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        navController.navigate(
+                                            Screen.TenantDetails.passId(tenant["id"].toString())
+                                        )
+                                    },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceVariant
                                 )
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
 
-                                Text("📩 ${tenant["email"]}")
-                                Text("📞 ${tenant["phone"]}")
-                                Text("🏠 Property: ${tenant["propertyName"]}")
+                                    Text(
+                                        text = "${tenant["firstName"]} ${tenant["lastName"]}",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+
+                                    Text("📩 Email: ${tenant["email"]}")
+                                    Text("📞 Phone: ${tenant["phone"]}")
+                                    Text("🏠 Property: ${tenant["propertyName"]}")
+                                    Text("💷 Rent: £${tenant["rentAmount"] ?: "N/A"}")
+                                    Text("📅 Next Due Date: ${tenant["nextRentDate"] ?: "N/A"}")
+                                }
                             }
                         }
                     }
-                }
             }
         }
     }

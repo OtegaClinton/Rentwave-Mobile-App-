@@ -1,6 +1,5 @@
 package uk.ac.tees.mad.e4611415.rentwave.ui.screens.tenants
 
-// Required imports
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -16,7 +15,6 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.google.firebase.firestore.FirebaseFirestore
 import uk.ac.tees.mad.e4611415.rentwave.navigation.Screen
-import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,7 +28,6 @@ fun TenantDetailsScreen(navController: NavHostController, tenantId: String) {
     var showDeleteDialog by remember { mutableStateOf(false) }
     var deleteLoading by remember { mutableStateOf(false) }
 
-    // Fetch tenant details once
     LaunchedEffect(tenantId) {
         db.collection("tenants").document(tenantId)
             .get()
@@ -39,7 +36,7 @@ fun TenantDetailsScreen(navController: NavHostController, tenantId: String) {
                 isLoading = false
             }
             .addOnFailureListener {
-                Toast.makeText(context, "Failed to load details", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Failed to load tenant details", Toast.LENGTH_SHORT).show()
                 isLoading = false
             }
     }
@@ -58,10 +55,10 @@ fun TenantDetailsScreen(navController: NavHostController, tenantId: String) {
                 )
             )
         }
-    ) { pad ->
+    ) { padding ->
 
         if (isLoading) {
-            Box(Modifier.fillMaxSize().padding(pad), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
             return@Scaffold
@@ -69,26 +66,30 @@ fun TenantDetailsScreen(navController: NavHostController, tenantId: String) {
 
         tenant?.let { details ->
 
+            val firstName = details["firstName"]?.toString() ?: "N/A"
+            val lastName = details["lastName"]?.toString() ?: ""
+            val email = details["email"]?.toString() ?: "N/A"
+            val phone = details["phone"]?.toString() ?: "N/A"
+            val propertyName = details["propertyName"]?.toString() ?: "Not assigned yet"
+
             Column(
                 modifier = Modifier
-                    .padding(pad)
+                    .padding(padding)
                     .fillMaxSize()
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
 
-                Text("${details["firstName"]} ${details["lastName"]}",
+                Text("$firstName $lastName",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
 
-                Text("📩 Email: ${details["email"]}")
-                Text("📞 Phone: ${details["phone"]}")
+                Text("📩 Email: $email")
+                Text("📞 Phone: $phone")
+                Text("🏠 Property: $propertyName")
 
-                // The property name is included from the updated TenantsScreen
-                Text("🏠 Property: ${details["propertyName"] ?: "N/A"}")
-
-                Spacer(Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(30.dp))
 
                 Button(
                     onClick = { showDeleteDialog = true },
@@ -101,7 +102,6 @@ fun TenantDetailsScreen(navController: NavHostController, tenantId: String) {
         }
     }
 
-    // Remove Tenant confirmation dialog
     if (showDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -113,14 +113,11 @@ fun TenantDetailsScreen(navController: NavHostController, tenantId: String) {
                 } else {
                     TextButton(onClick = {
                         deleteLoading = true
-
-                        db.collection("tenants").document(tenantId)
+                        FirebaseFirestore.getInstance().collection("tenants").document(tenantId)
                             .delete()
                             .addOnSuccessListener {
                                 deleteLoading = false
-                                Toast.makeText(context, "Tenant Removed ✔", Toast.LENGTH_SHORT).show()
-
-                                // Navigate back to tenant list
+                                Toast.makeText(context, "Tenant Removed", Toast.LENGTH_SHORT).show()
                                 navController.navigate(Screen.Tenants.route) {
                                     popUpTo(Screen.TenantDetails.route) { inclusive = true }
                                 }
@@ -129,7 +126,6 @@ fun TenantDetailsScreen(navController: NavHostController, tenantId: String) {
                                 deleteLoading = false
                                 Toast.makeText(context, "Failed to remove tenant", Toast.LENGTH_SHORT).show()
                             }
-
                     }) {
                         Text("Remove", color = Color.Red)
                     }

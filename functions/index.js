@@ -1,33 +1,17 @@
 const { onCall } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
-const sgMail = require("@sendgrid/mail");
+const sendMail = require("./sendMail");
 require("dotenv").config();
 
-// 🔹 Initialise Firebase Admin (once)
-if (admin.apps.length === 0) {
-  admin.initializeApp();
-}
+// Initialize Firebase Admin once
+admin.initializeApp({
+  credential: admin.credential.applicationDefault(),
+    storageBucket: "rentwave-ica.firebasestorage.app"
+});
 
-// 🔹 Read SendGrid API key from .env
-//    Accepts either SENDGRID_API_KEY or SENDGRID_KEY so we don't get stuck on names
-const SENDGRID_KEY =
-  process.env.SENDGRID_API_KEY || process.env.SENDGRID_KEY || "";
 
-if (!SENDGRID_KEY) {
-  console.error(
-    "⚠️ No SendGrid key found. Make sure .env contains SENDGRID_API_KEY=... or SENDGRID_KEY=..."
-  );
-} else {
-  sgMail.setApiKey(SENDGRID_KEY);
-  console.log("✅ SendGrid initialised. Key length:", SENDGRID_KEY.length);
-}
-
-// 👉 This is the function your Android app calls: "createTenant"
 exports.createTenant = onCall(async (request) => {
-  console.log(
-    "📩 createTenant called with data:",
-    JSON.stringify(request.data || {}, null, 2)
-  );
+  console.log("📩 createTenant called:", request.data);
 
   const {
     email,
@@ -37,45 +21,52 @@ exports.createTenant = onCall(async (request) => {
     tempPassword,
     propertyId,
     landlordId,
+    rentAmount,
+    rentStartDate,
+    nextRentDate,
+    propertyName,
   } = request.data || {};
 
-  // Basic validation
-  if (!email || !tempPassword || !propertyId || !landlordId) {
-    console.error("❌ Missing required fields");
-    return { success: false, error: "Missing required fields" };
+  // 🔴 Only validate the truly required fields
+  if (!email || !tempPassword || !propertyId) {
+    console.error("❌ Missing required fields (email, password, or propertyId)");
+    throw new Error("Missing required fields");
   }
 
   try {
-    // 1️⃣ CREATE Firebase Authentication user for tenant
+    // 1️⃣ Create Firebase Auth User for Tenant
     const userRecord = await admin.auth().createUser({
       email,
       password: tempPassword,
     });
 
     const tenantId = userRecord.uid;
-    console.log("✅ Auth user created:", tenantId);
+    const db = admin.firestore();
 
-    // 2️⃣ SAVE tenant data in Firestore (tenants + users)
+    // 2️⃣ Save Tenant Data to Firestore (includes rent + property info)
     const tenantData = {
       firstName: firstName || "",
       lastName: lastName || "",
       email,
       phone: phone || "",
       propertyId,
-      landlordId,
+      propertyName: propertyName || "",
+      landlordId: landlordId || "", // if null, store empty string instead of failing
+      rentAmount: rentAmount || "",
+      rentStartDate: rentStartDate || "",
+      nextRentDate: nextRentDate || "",
       role: "tenant",
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    const db = admin.firestore();
-
     await db.collection("tenants").doc(tenantId).set(tenantData);
     await db.collection("users").doc(tenantId).set(tenantData);
-    console.log("✅ Firestore docs written for tenant:", tenantId);
 
-    // 3️⃣ SEND EMAIL — your HTML template kept
+    console.log("🔥 Tenant saved to Firestore:", tenantId);
+
+    // 3️⃣ Send Email via your Nodemailer Function (YOUR TEMPLATE KEPT 100%)
     const htmlContent = `
-<!DOCTYPE html>
+      <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -167,26 +158,28 @@ exports.createTenant = onCall(async (request) => {
     </div>
 </body>
 </html>
-`;
+    `;
 
-    console.log("🚀 Sending email via SendGrid to:", email);
-    await sgMail.send({
-      to: email,
-      from: "oghenetegaokotie@gmail.com", // your verified single sender
-      subject: "Your RentWave Login Details",
-      html: htmlContent,
-    });
-    console.log("✅ Email sent successfully to:", email);
-
-    return { success: true };
-  } catch (error) {
-    console.error("❌ Error in createTenant:", error);
-    if (error.response && error.response.body) {
-      console.error(
-        "SendGrid response body:",
-        JSON.stringify(error.response.body)
-      );
+    // Try sending email, but don't fail the whole function if email fails
+    try {
+      await sendMail({
+        to: email,
+        subject: "RentWave Tenant Login Details",
+        html: htmlContent,
+      });
+      console.log("📨 Email sent successfully");
+    } catch (emailErr) {
+      console.error("⚠ Failed to send email, but tenant was created:", emailErr);
     }
-    return { success: false, error: error.message || "Unknown error" };
+
+    return { success: true, tenantId };
+
+  } catch (error) {
+    console.error("❌ Error creating tenant:", error);
+    throw new Error(error.message || "Unknown error creating tenant");
   }
 });
+
+
+
+exports.sendPaymentReceipt = require("./sendPaymentReceipt").sendPaymentReceipt;
