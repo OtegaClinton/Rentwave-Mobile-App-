@@ -6,17 +6,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import coil.compose.AsyncImage
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import uk.ac.tees.mad.e4611415.rentwave.navigation.Screen
@@ -29,10 +30,9 @@ fun TenantRequestsScreen(navController: NavHostController) {
     val db = FirebaseFirestore.getInstance()
     val context = LocalContext.current
 
-    var requests by remember { mutableStateOf<List<Pair<String, Map<String, Any>>>>(emptyList()) }
+    var requests by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    // Realtime updates
     LaunchedEffect(Unit) {
         db.collection("tenant_requests")
             .whereEqualTo("userId", userId)
@@ -44,7 +44,11 @@ fun TenantRequestsScreen(navController: NavHostController) {
                 }
 
                 if (snapshot != null) {
-                    requests = snapshot.documents.map { it.id to (it.data ?: emptyMap()) }
+                    requests = snapshot.documents.mapNotNull { doc ->
+                        doc.data?.toMutableMap()?.apply { put("id", doc.id) }
+                    }.sortedByDescending {
+                        (it["timestamp"] as? Timestamp)?.toDate()
+                    }
                     isLoading = false
                 }
             }
@@ -56,7 +60,11 @@ fun TenantRequestsScreen(navController: NavHostController) {
                 title = { Text("My Requests", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -65,12 +73,15 @@ fun TenantRequestsScreen(navController: NavHostController) {
             )
         },
 
+        /* ✅ ADD REQUEST BUTTON (RESTORED) */
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate(Screen.TenantCreateRequest.route) },
+                onClick = {
+                    navController.navigate(Screen.TenantCreateRequest.route)
+                },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "New Request")
+                Icon(Icons.Default.Add, contentDescription = "Create Request")
             }
         }
     ) { padding ->
@@ -80,9 +91,8 @@ fun TenantRequestsScreen(navController: NavHostController) {
                 .padding(padding)
                 .fillMaxSize()
         ) {
-
             when {
-                isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                isLoading -> CircularProgressIndicator(Modifier.align(Alignment.Center))
 
                 requests.isEmpty() -> Text(
                     "You haven't submitted any requests yet.",
@@ -92,54 +102,63 @@ fun TenantRequestsScreen(navController: NavHostController) {
 
                 else -> LazyColumn(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
+                        .padding(16.dp)
+                        .fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(requests) { (id, req) ->
-
-                        val images = req["images"] as? List<*> ?: emptyList<Any>()
-                        val coverImage = images.firstOrNull()?.toString()
-
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    navController.navigate(Screen.TenantRequestDetails.passId(id))
-                                },
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        ) {
-
-                            // Top image
-                            if (coverImage != null) {
-                                AsyncImage(
-                                    model = coverImage,
-                                    contentDescription = "Request Image",
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(140.dp)
+                    items(requests) { request ->
+                        TenantRequestCard(
+                            request = request,
+                            onClick = {
+                                navController.navigate(
+                                    Screen.TenantRequestDetails.passId(
+                                        request["id"].toString()
+                                    )
                                 )
                             }
-
-                            Column(Modifier.padding(16.dp)) {
-
-                                Text(
-                                    text = req["title"]?.toString() ?: "No Title",
-                                    style = MaterialTheme.typography.titleMedium
-                                )
-
-                                Text(
-                                    text = "Status: ${req["status"] ?: "Pending"}",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.Gray
-                                )
-                            }
-                        }
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun TenantRequestCard(
+    request: Map<String, Any>,
+    onClick: () -> Unit
+) {
+    val status = request["status"]?.toString() ?: "Pending"
+    val statusColor = when (status.lowercase()) {
+        "resolved" -> Color(0xFF2E7D32)
+        "in progress" -> Color(0xFFFF8F00)
+        else -> Color(0xFFD32F2F)
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+
+            Text(
+                text = request["title"]?.toString() ?: "No Title",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                text = "Status: $status",
+                color = statusColor,
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }

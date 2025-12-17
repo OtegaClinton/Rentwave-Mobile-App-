@@ -1,4 +1,5 @@
 const { onCall } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const sendMail = require("./sendMail");
 require("dotenv").config();
@@ -183,3 +184,6 @@ exports.createTenant = onCall(async (request) => {
 
 
 exports.sendPaymentReceipt = require("./sendPaymentReceipt").sendPaymentReceipt;
+
+exports.sendRentDueReminders = require("./sendRentDueReminders").sendRentDueReminders;
+

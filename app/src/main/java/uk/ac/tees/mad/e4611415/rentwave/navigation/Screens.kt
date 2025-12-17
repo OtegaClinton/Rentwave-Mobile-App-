@@ -56,6 +56,10 @@ sealed class Screen(val route: String) {
     object TenantRequestDetails : Screen("tenant_request_details") {
         fun passId(id: String) = "tenant_request_details/$id"
     }
+    object EditTenantRequest : Screen("editTenantRequest/{id}") {
+        fun passId(id: String) = "editTenantRequest/$id"
+    }
+
     object TenantMessages : Screen("tenant_messages_screen")
 
     object TenantProfile : Screen("tenant_profile_screen")

@@ -4,14 +4,9 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -19,12 +14,19 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import uk.ac.tees.mad.e4611415.rentwave.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TenantSettingsScreen(navController: NavHostController) {
+
     val context = LocalContext.current
+    val auth = FirebaseAuth.getInstance()
+    val db = FirebaseFirestore.getInstance()
+
+    var showDeactivateDialog by remember { mutableStateOf(false) }
+    var deactivating by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -54,26 +56,24 @@ fun TenantSettingsScreen(navController: NavHostController) {
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
 
+            /* 🔹 ACCOUNT */
             Text("Account", style = MaterialTheme.typography.titleMedium)
 
             SettingsItem(
                 icon = Icons.Default.Edit,
                 title = "Edit Profile",
-                onClick = {
-                    navController.navigate(Screen.EditProfile.route)
-                }
+                onClick = { navController.navigate(Screen.EditProfile.route) }
             )
 
             SettingsItem(
                 icon = Icons.Default.Lock,
                 title = "Change Password",
-                onClick = {
-                    navController.navigate(Screen.ChangePassword.route)
-                }
+                onClick = { navController.navigate(Screen.ChangePassword.route) }
             )
 
             Divider()
 
+            /* 🔹 PREFERENCES */
             Text("Preferences", style = MaterialTheme.typography.titleMedium)
 
             SettingsItem(
@@ -90,22 +90,21 @@ fun TenantSettingsScreen(navController: NavHostController) {
 
             Divider()
 
+            /* 🔹 SUPPORT */
             Text("Support", style = MaterialTheme.typography.titleMedium)
 
             SettingsItem(
                 icon = Icons.Default.Info,
                 title = "About App",
-                onClick = {
-                    navController.navigate(Screen.About.route)
-                }
+                onClick = { navController.navigate(Screen.About.route) }
             )
 
             Spacer(modifier = Modifier.weight(1f))
 
-            // Logout Button
+            /* 🔴 LOGOUT */
             Button(
                 onClick = {
-                    FirebaseAuth.getInstance().signOut()
+                    auth.signOut()
                     navController.navigate(Screen.Login.route) {
                         popUpTo(Screen.TenantDashboard.route) { inclusive = true }
                     }
@@ -116,14 +115,76 @@ fun TenantSettingsScreen(navController: NavHostController) {
                 ),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Icon(Icons.Default.ExitToApp, contentDescription = null)
+                Icon(Icons.Default.ExitToApp, null)
                 Spacer(Modifier.width(8.dp))
                 Text("Logout")
             }
+
+            /* ⚠️ DEACTIVATE ACCOUNT */
+            OutlinedButton(
+                onClick = { showDeactivateDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color.Red
+                )
+            ) {
+                Text("Deactivate Account")
+            }
         }
+    }
+
+    /* 🔥 CONFIRMATION DIALOG */
+    if (showDeactivateDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!deactivating) showDeactivateDialog = false },
+            title = { Text("Deactivate Account") },
+            text = {
+                Text(
+                    "This will deactivate your account and log you out.\n\n" +
+                            "You can contact support to reactivate it later."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val user = auth.currentUser ?: return@TextButton
+                        deactivating = true
+
+                        db.collection("users")
+                            .document(user.uid)
+                            .update("isActive", false)
+                            .addOnSuccessListener {
+                                auth.signOut()
+                                navController.navigate(Screen.Login.route) {
+                                    popUpTo(0)
+                                }
+                            }
+                            .addOnFailureListener {
+                                deactivating = false
+                                Toast.makeText(
+                                    context,
+                                    "Failed to deactivate account",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                    }
+                ) {
+                    if (deactivating)
+                        CircularProgressIndicator(Modifier.size(18.dp))
+                    else
+                        Text("Deactivate", color = Color.Red)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeactivateDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 
+/* 🔹 SETTINGS ITEM */
 @Composable
 fun SettingsItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,

@@ -247,5 +247,134 @@ exports.sendPaymentReceipt = onCall(async (request) => {
   });
 
   console.log("📨 Receipt delivered + saved:", tenantEmail);
+
+  
+  // 🔔 Notify landlord 
+if (landlordId) {
+  const landlordDoc = await db.collection("users").doc(landlordId).get();
+
+  if (landlordDoc.exists) {
+    const landlordEmail = landlordDoc.data().email;
+    const landlordName =
+      `${landlordDoc.data().firstName} ${landlordDoc.data().lastName}`;
+
+    const landlordEmailHtml = `
+     <!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Rent Payment Received - RentWave</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            margin: 20px auto;
+            padding: 20px;
+            border: 1px solid #d0dbe1;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+            background-color: #f4f4f4;
+        }
+        .header {
+            background: #5F92DF;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            border-bottom: 2px solid #5F92DF;
+            color: #f4f4f4;
+            border-radius: 10px 10px 0 0;
+        }
+        .header img {
+            width: 120px;
+            height: 100px;
+            object-fit: contain;
+            position: absolute;
+            left: 15px;
+        }
+        .content {
+            padding: 20px;
+            color: #333333;
+        }
+        .footer {
+            background: #5F92DF;
+            padding: 15px;
+            text-align: center;
+            border-top: 2px solid #5F92DF;
+            font-size: 0.9em;
+            color: #f4f4f4;
+            border-radius: 0 0 10px 10px;
+        }
+        .highlight {
+            background: #ffffff;
+            border-left: 4px solid #5F92DF;
+            padding: 12px;
+            margin: 16px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="${logoUrl}" alt="RentWave Logo">
+            <h1>Rent Payment Received</h1>
+        </div>
+
+        <div class="content">
+            <p>Dear ${landlordName},</p>
+
+            <p>
+                This is to inform you that a rent payment has been successfully made by one of your tenants.
+            </p>
+
+            <div class="highlight">
+                <p><strong>Tenant Name:</strong> ${tenantName}</p>
+                <p><strong>Property:</strong> ${propertyName}</p>
+                <p><strong>Amount Paid:</strong> £${amount}</p>
+                <p><strong>Payment Date:</strong> ${new Date(timestamp.toDate()).toLocaleString()}</p>
+            </div>
+
+            <p>
+                You can log in to your RentWave dashboard to view full payment details and history.
+            </p>
+
+            <p>
+                Thank you for using RentWave to manage your rental properties.
+            </p>
+
+            <p>
+                Best regards,<br>
+                <strong>The RentWave Team</strong>
+            </p>
+        </div>
+
+        <div class="footer">
+            RentWave - Making Rental Management Easier
+        </div>
+    </div>
+</body>
+</html>
+    `;
+
+    await sendMail({
+      to: landlordEmail,
+      subject: "RentWave: Tenant Rent Payment Received",
+      html: landlordEmailHtml
+    });
+
+    console.log("📨 Landlord notified:", landlordEmail);
+  }
+}
   return { success: true, receiptUrl: downloadUrl };
+
+
 });

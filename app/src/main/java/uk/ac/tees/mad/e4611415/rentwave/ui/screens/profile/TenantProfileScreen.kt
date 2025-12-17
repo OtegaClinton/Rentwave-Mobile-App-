@@ -189,10 +189,21 @@ fun TenantProfileScreen(navController: NavHostController) {
             title = { Text("Profile Picture") },
             text = { Text("Choose an option:") },
             confirmButton = {
-                TextButton(onClick = {
-                    showImageDialog = false
-                    navController.navigate(Screen.ViewProfileImage.passUrl(profileImage))
-                }) { Text("View Image") }
+                TextButton(
+                    enabled = profileImage.isNotBlank(),
+                    onClick = {
+                        showImageDialog = false
+
+                        navController.currentBackStackEntry
+                            ?.savedStateHandle
+                            ?.set("imageUrl", profileImage)
+
+                        navController.navigate(Screen.ViewProfileImage.route)
+                    }
+                ) {
+                    Text("View Image")
+                }
+
             },
             dismissButton = {
                 TextButton(onClick = {

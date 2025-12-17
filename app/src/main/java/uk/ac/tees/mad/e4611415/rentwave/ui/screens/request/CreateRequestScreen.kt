@@ -34,8 +34,9 @@ fun CreateRequestScreen(navController: NavHostController) {
 
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
     val firestore = FirebaseFirestore.getInstance()
-    val storage = FirebaseStorage.getInstance().reference
+    val storageRef = FirebaseStorage.getInstance().reference
     val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
 
     var title by remember { mutableStateOf("") }
@@ -43,17 +44,23 @@ fun CreateRequestScreen(navController: NavHostController) {
     var selectedImages by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
 
-    // Pick up to 2 images
+    /* ---------- IMAGE PICKER (MAX 2) ---------- */
+
     val imagePicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents(),
-        onResult = { uris ->
-            if (uris.size <= 2) {
-                selectedImages = uris
-            } else {
-                Toast.makeText(context, "You can upload only 2 images", Toast.LENGTH_SHORT).show()
-            }
+        ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        if (uris.size > 2) {
+            Toast.makeText(
+                context,
+                "You can upload only 2 images",
+                Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            selectedImages = uris
         }
-    )
+    }
+
+    /* ---------- UI ---------- */
 
     Scaffold(
         topBar = {
@@ -61,7 +68,11 @@ fun CreateRequestScreen(navController: NavHostController) {
                 title = { Text("New Request", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+                        Icon(
+                            Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -94,17 +105,29 @@ fun CreateRequestScreen(navController: NavHostController) {
                 minLines = 4
             )
 
-            Text("Upload Images (optional, max 2)", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Upload Images (optional, max 2)",
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            /* ---------- IMAGE PREVIEW ROW ---------- */
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+
                 item {
                     Box(
                         modifier = Modifier
                             .size(100.dp)
-                            .clickable { imagePicker.launch("image/*") },
+                            .clickable {
+                                imagePicker.launch("image/*")
+                            },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.AddAPhoto, contentDescription = null, tint = Color.Gray)
+                        Icon(
+                            Icons.Default.AddAPhoto,
+                            contentDescription = "Add Image",
+                            tint = Color.Gray
+                        )
                     }
                 }
 
@@ -118,62 +141,86 @@ fun CreateRequestScreen(navController: NavHostController) {
                 }
             }
 
+            /* ---------- SUBMIT BUTTON ---------- */
+
             Button(
                 onClick = {
                     if (title.isBlank() || description.isBlank()) {
-                        Toast.makeText(context, "Please fill in title and description", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "Please fill in title and description",
+                            Toast.LENGTH_SHORT
+                        ).show()
                         return@Button
                     }
 
                     isLoading = true
 
                     scope.launch {
-                        val uploadedImages = mutableListOf<String>()
+                        val uploadedImageUrls = mutableListOf<String>()
 
-                        // Upload ONLY if images were selected
-                        if (selectedImages.isNotEmpty()) {
-                            for ((i, uri) in selectedImages.withIndex()) {
-                                try {
-                                    val ref = storage.child("request_images/${userId}_${System.currentTimeMillis()}_$i.jpg")
-                                    ref.putFile(uri).await()
-                                    val url = ref.downloadUrl.await().toString()
-                                    uploadedImages.add(url)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
+                        try {
+                            // Upload images if selected
+                            for ((index, uri) in selectedImages.withIndex()) {
+                                val imageRef = storageRef.child(
+                                    "request_images/${userId}_${System.currentTimeMillis()}_$index.jpg"
+                                )
+
+                                imageRef.putFile(uri).await()
+                                val downloadUrl = imageRef.downloadUrl.await().toString()
+                                uploadedImageUrls.add(downloadUrl)
+                            }
+
+                            val requestData = mapOf(
+                                "userId" to userId,
+                                "title" to title,
+                                "description" to description,
+                                "images" to uploadedImageUrls, // ✅ SAFE
+                                "timestamp" to Timestamp.now(),
+                                "status" to "Pending"
+                            )
+
+                            firestore.collection("tenant_requests")
+                                .add(requestData)
+                                .addOnSuccessListener {
+                                    Toast.makeText(
+                                        context,
+                                        "Request submitted!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    navController.popBackStack()
                                 }
-                            }
+                                .addOnFailureListener {
+                                    Toast.makeText(
+                                        context,
+                                        "Failed to submit request",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                            Toast.makeText(
+                                context,
+                                "Image upload failed. Please try again.",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        } finally {
+                            isLoading = false
                         }
-
-                        // Build request object
-                        val requestData = mapOf(
-                            "userId" to userId,
-                            "title" to title,
-                            "description" to description,
-                            "images" to uploadedImages,       // <-- empty list if none
-                            "timestamp" to Timestamp.now(),
-                            "status" to "Pending"
-                        )
-
-                        firestore.collection("tenant_requests")
-                            .add(requestData)
-                            .addOnSuccessListener {
-                                Toast.makeText(context, "Request submitted!", Toast.LENGTH_SHORT).show()
-                                navController.popBackStack()
-                            }
-                            .addOnFailureListener {
-                                Toast.makeText(context, "Failed to submit request", Toast.LENGTH_SHORT).show()
-                            }
-
-                        isLoading = false
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isLoading
             ) {
-                if (isLoading)
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
-                else
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
                     Text("Submit Request")
+                }
             }
         }
     }

@@ -27,8 +27,13 @@ import uk.ac.tees.mad.e4611415.rentwave.ui.screens.profile.TenantProfileScreen
 import uk.ac.tees.mad.e4611415.rentwave.ui.screens.settings.TenantSettingsScreen
 import uk.ac.tees.mad.e4611415.rentwave.ui.screens.settings.EditProfileScreen
 import uk.ac.tees.mad.e4611415.rentwave.ui.screens.settings.ChangePasswordScreen
+import uk.ac.tees.mad.e4611415.rentwave.ui.screens.requests.EditTenantRequestScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import androidx.compose.runtime.remember
+import androidx.lifecycle.viewmodel.compose.viewModel
+import uk.ac.tees.mad.e4611415.rentwave.viewmodel.ProfileImageViewModel
+
 
 @Composable
 fun AppNavigation(navController: NavHostController) {
@@ -46,12 +51,18 @@ fun AppNavigation(navController: NavHostController) {
 
         // Dashboards
         composable(Screen.LandlordDashboard.route) { LandlordDashboardScreen(navController) }
-        composable(
-            route = Screen.ViewProfileImage.route + "/{imageUrl}",
-            arguments = listOf(navArgument("imageUrl") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val imageUrl = backStackEntry.arguments?.getString("imageUrl") ?: ""
-            ViewProfileImageScreen(navController, imageUrl)
+        composable(Screen.ViewProfileImage.route) {
+
+            val imageUrl =
+                navController.previousBackStackEntry
+                    ?.savedStateHandle
+                    ?.get<String>("imageUrl")
+                    ?: ""
+
+            ViewProfileImageScreen(
+                navController = navController,
+                imageUrl = imageUrl
+            )
         }
 
         composable(Screen.TenantDashboard.route) { TenantDashboardScreen(navController) }
@@ -85,6 +96,14 @@ fun AppNavigation(navController: NavHostController) {
             val tenantId = backStackEntry.arguments?.getString("tenantId") ?: ""
             TenantDetailsScreen(navController, tenantId)
         }
+        composable(Screen.EditTenantRequest.route) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("id") ?: return@composable
+            EditTenantRequestScreen(
+                navController = navController,
+                requestId = id
+            )
+        }
+
 
         // Other Sections
         composable(Screen.Payments.route) { PaymentsScreen(navController) }
