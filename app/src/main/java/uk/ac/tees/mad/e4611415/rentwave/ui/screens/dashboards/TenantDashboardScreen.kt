@@ -46,7 +46,6 @@ fun TenantDashboardScreen(navController: NavHostController) {
     var profileImageUrl by remember { mutableStateOf("") }
     var showProfileOptions by remember { mutableStateOf(false) }
 
-    val unreadNotifications = 3
 
     /* ---------- IMAGE PICKER ---------- */
 
@@ -105,21 +104,10 @@ fun TenantDashboardScreen(navController: NavHostController) {
                         }
                     },
                     actions = {
-                        Box {
-                            IconButton(onClick = {
-                                Toast.makeText(context, "Notifications coming soon…", Toast.LENGTH_SHORT).show()
-                            }) {
-                                Icon(Icons.Default.Notifications, null, tint = Color.White)
-                            }
-
-                            if (unreadNotifications > 0) {
-                                Badge(
-                                    containerColor = Color.Red,
-                                    modifier = Modifier.align(Alignment.TopEnd)
-                                ) {
-                                    Text(unreadNotifications.toString(), color = Color.White)
-                                }
-                            }
+                        IconButton(onClick = {
+                            Toast.makeText(context, "Notifications coming soon…", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Notifications, null, tint = Color.White)
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -184,11 +172,12 @@ fun TenantDashboardScreen(navController: NavHostController) {
                     columns = GridCells.Fixed(2),
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
-                        .fillMaxHeight(),
-                    userScrollEnabled = false
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(items) { (title, icon, route) ->
-                        TenantTile(title, icon, route, navController)
+                        DashboardTile(title, icon, route, navController)
                     }
                 }
             }

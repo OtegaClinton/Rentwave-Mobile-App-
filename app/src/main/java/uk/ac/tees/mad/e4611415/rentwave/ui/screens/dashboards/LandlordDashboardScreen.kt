@@ -46,7 +46,6 @@ fun LandlordDashboardScreen(navController: NavHostController) {
     var profileImageUrl by remember { mutableStateOf("") }
     var showProfileOptions by remember { mutableStateOf(false) }
 
-    val notiCount = 3
 
     /* ---------- IMAGE PICKER ---------- */
 
@@ -105,23 +104,13 @@ fun LandlordDashboardScreen(navController: NavHostController) {
                         }
                     },
                     actions = {
-                        Box {
-                            IconButton(onClick = {
-                                Toast.makeText(context, "Notifications coming soon...", Toast.LENGTH_SHORT).show()
-                            }) {
-                                Icon(Icons.Default.Notifications, null, tint = Color.White)
-                            }
-
-                            if (notiCount > 0) {
-                                Badge(
-                                    containerColor = Color.Red,
-                                    modifier = Modifier.align(Alignment.TopEnd)
-                                ) {
-                                    Text(notiCount.toString(), color = Color.White)
-                                }
-                            }
+                        IconButton(onClick = {
+                            Toast.makeText(context, "Notifications coming soon…", Toast.LENGTH_SHORT).show()
+                        }) {
+                            Icon(Icons.Default.Notifications, null, tint = Color.White)
                         }
-                    },
+                    }
+                    ,
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )
@@ -181,8 +170,9 @@ fun LandlordDashboardScreen(navController: NavHostController) {
                     columns = GridCells.Fixed(2),
                     modifier = Modifier
                         .padding(horizontal = 12.dp)
-                        .fillMaxHeight(),
-                    userScrollEnabled = false
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(items) { (title, icon, route) ->
                         DashboardTile(title, icon, route, navController)
@@ -205,7 +195,7 @@ fun LandlordDashboardScreen(navController: NavHostController) {
                         ?.savedStateHandle
                         ?.set("imageUrl", profileImageUrl)
                     navController.navigate(Screen.ViewProfileImage.route)
-                }) { Text("Preview Image") }
+                }) { Text("View Profile Image") }
             },
             dismissButton = {
                 TextButton(onClick = {
@@ -271,7 +261,7 @@ fun DrawerContent(
                     contentDescription = null,
                     modifier = Modifier
                         .size(90.dp)
-                        .clip(CircleShape)      // ✅ ONLY CHANGE
+                        .clip(CircleShape)
                 )
             } else {
                 Icon(
