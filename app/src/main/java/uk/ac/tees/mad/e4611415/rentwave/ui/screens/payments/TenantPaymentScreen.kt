@@ -2,6 +2,7 @@ package uk.ac.tees.mad.e4611415.rentwave.ui.screens.payments
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
@@ -12,12 +13,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.compose.foundation.text.KeyboardOptions
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import uk.ac.tees.mad.e4611415.rentwave.navigation.Screen
 import java.text.SimpleDateFormat
 import java.util.*
-import uk.ac.tees.mad.e4611415.rentwave.navigation.Screen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,27 +36,32 @@ fun TenantPaymentScreen(navController: NavHostController) {
     var cvv by remember { mutableStateOf("") }
     var isProcessing by remember { mutableStateOf(false) }
 
-    // 🔹 Date parser that matches your Firestore string
-    val firestoreDateParser = remember {
-        SimpleDateFormat("EEE MMM dd HH:mm:ss 'GMT' yyyy", Locale.ENGLISH)
+    /* 🔹 Date formatter used everywhere */
+    val dateFormatter = remember {
+        SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH)
     }
 
-    // 🔹 Fetch Tenant Rent Data
+    /* 🔹 Fetch Tenant Rent Data */
     LaunchedEffect(userId) {
-        db.collection("tenants").document(userId).get()
+        db.collection("tenants").document(userId)
+            .get()
             .addOnSuccessListener { doc ->
                 rentAmount = doc.getString("rentAmount") ?: "0"
                 landlordId = doc.getString("landlordId") ?: ""
 
                 val nextRentDateString = doc.getString("nextRentDate")
                 nextRentDate = try {
-                    nextRentDateString?.let { firestoreDateParser.parse(it) }
+                    nextRentDateString?.let { dateFormatter.parse(it) }
                 } catch (_: Exception) {
                     null
                 }
             }
             .addOnFailureListener {
-                Toast.makeText(context, "Failed to load rent details", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    context,
+                    "Failed to load rent details",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
     }
 
@@ -67,7 +72,7 @@ fun TenantPaymentScreen(navController: NavHostController) {
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
-                            Icons.Filled.ArrowBack,
+                            Icons.Default.ArrowBack,
                             contentDescription = "Back",
                             tint = Color.White
                         )
@@ -88,7 +93,10 @@ fun TenantPaymentScreen(navController: NavHostController) {
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
 
-            Text("Total Rent: £$rentAmount", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Total Rent: £$rentAmount",
+                style = MaterialTheme.typography.titleMedium
+            )
 
             OutlinedTextField(
                 value = cardNumber,
@@ -116,8 +124,13 @@ fun TenantPaymentScreen(navController: NavHostController) {
 
             Button(
                 onClick = {
+
                     if (cardNumber.length < 16 || expiryDate.length < 4 || cvv.length < 3) {
-                        Toast.makeText(context, "Invalid card details!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(
+                            context,
+                            "Invalid card details!",
+                            Toast.LENGTH_SHORT
+                        ).show()
                         return@Button
                     }
 
@@ -131,34 +144,41 @@ fun TenantPaymentScreen(navController: NavHostController) {
                         "status" to "Paid"
                     )
 
-                    // 🔹 Save Payment
+                    /* 🔹 Save Payment */
                     db.collection("payments")
                         .add(paymentData)
                         .addOnSuccessListener { docRef ->
 
-                            val paymentId = docRef.id // 👈 We need this!!
+                            val paymentId = docRef.id
 
-                            // 🔹 Move next rent due by 1 month
+                            /* 🔹 Move next rent date forward */
                             val cal = Calendar.getInstance()
                             cal.time = nextRentDate ?: Date()
                             cal.add(Calendar.MONTH, 1)
 
                             db.collection("tenants").document(userId)
-                                .update("nextRentDate", cal.time.toString())
+                                .update("nextRentDate", dateFormatter.format(cal.time))
 
-                            // 🔹 Trigger Payment Receipt Email via Cloud Function
-                            com.google.firebase.functions.FirebaseFunctions.getInstance()
+                            /* 🔹 Trigger receipt email */
+                            com.google.firebase.functions.FirebaseFunctions
+                                .getInstance()
                                 .getHttpsCallable("sendPaymentReceipt")
                                 .call(mapOf("paymentId" to paymentId))
                                 .addOnSuccessListener {
-                                    Toast.makeText(context, "Receipt Sent 📩", Toast.LENGTH_SHORT).show()
-                                }
-                                .addOnFailureListener {
-                                    Toast.makeText(context, "Failed to send receipt email", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(
+                                        context,
+                                        "Receipt Sent 📩",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 }
 
                             isProcessing = false
-                            Toast.makeText(context, "Payment Successful 🎉", Toast.LENGTH_LONG).show()
+
+                            Toast.makeText(
+                                context,
+                                "Payment Successful 🎉",
+                                Toast.LENGTH_LONG
+                            ).show()
 
                             navController.navigate(Screen.MyRent.route) {
                                 popUpTo(Screen.TenantPayment.route) { inclusive = true }
@@ -166,19 +186,25 @@ fun TenantPaymentScreen(navController: NavHostController) {
                         }
                         .addOnFailureListener {
                             isProcessing = false
-                            Toast.makeText(context, "Payment Failed!", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(
+                                context,
+                                "Payment Failed!",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
-
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isProcessing
             ) {
-                if (isProcessing)
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp))
-                else
+                if (isProcessing) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(22.dp)
+                    )
+                } else {
                     Text("Confirm Payment")
+                }
             }
-
         }
     }
 }

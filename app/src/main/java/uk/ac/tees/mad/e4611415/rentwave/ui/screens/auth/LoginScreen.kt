@@ -175,7 +175,7 @@ fun LoginScreen(navController: NavHostController) {
                                                     }
                                                 }
                                                 else -> {
-                                                    // If no role in "users", fallback check tenants collection
+                                                    // Fallback check tenants collection
                                                     db.collection("tenants").document(userId).get()
                                                         .addOnSuccessListener { tenantDoc ->
                                                             if (tenantDoc.exists()) {
@@ -183,10 +183,14 @@ fun LoginScreen(navController: NavHostController) {
                                                                     popUpTo(Screen.Login.route) { inclusive = true }
                                                                 }
                                                             } else {
-                                                                errorMessage = "User role not found"
+                                                                // ✅ User authenticated but not registered in app
+                                                                FirebaseAuth.getInstance().signOut()
+                                                                errorMessage = "No account found. Please sign up to continue."
+                                                                showResend = false
                                                             }
                                                         }
                                                 }
+
                                             }
                                         }
 

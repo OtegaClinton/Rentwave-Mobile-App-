@@ -86,13 +86,23 @@ fun MyRentScreen(navController: NavHostController) {
                     val property = tenantData!!["propertyName"].toString()
                     val rentAmount = tenantData!!["rentAmount"].toString()
                     val rentStart = tenantData!!["rentStartDate"].toString()
-                    val nextDueString = tenantData!!["nextRentDate"].toString()
+                    val rawNextRent = tenantData!!["nextRentDate"]
 
-                    val nextDueDate = try {
-                        fallbackDateFormatter.parse(nextDueString)
-                    } catch (_: Exception) {
-                        null
+                    val nextDueDate: Date? = when (rawNextRent) {
+                        is com.google.firebase.Timestamp -> rawNextRent.toDate()
+
+                        is String -> {
+                            try {
+                                SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH)
+                                    .parse(rawNextRent)
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+
+                        else -> null
                     }
+
 
                     val today = Date()
                     val diffDays = nextDueDate?.let {

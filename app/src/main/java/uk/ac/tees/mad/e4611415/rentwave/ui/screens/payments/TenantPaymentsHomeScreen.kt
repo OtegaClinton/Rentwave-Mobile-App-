@@ -6,7 +6,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -31,22 +30,24 @@ fun TenantPaymentsHomeScreen(navController: NavHostController) {
     var statusText by remember { mutableStateOf("Loading…") }
     var statusColor by remember { mutableStateOf(Color.Gray) }
 
-    // 🔹 This pattern matches: Fri Apr 10 19:05:08 GMT+01:00 2026
-    val rawDateFormat = remember {
-        SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy", Locale.ENGLISH)
+    // ✅ Matches Firestore: "31 Jan 2026"
+    val firestoreDateParser = remember {
+        SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH)
     }
+
     val displayFormat = remember {
         SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     }
 
-    // 🔹 Fetch rent info
-    LaunchedEffect(true) {
-        db.collection("tenants").document(userId).get()
-            .addOnSuccessListener { doc ->
-                val rent = doc.getString("rentAmount")
-                val nextDueRaw = doc.getString("nextRentDate")
+    /* ---------------- FETCH RENT INFO ---------------- */
 
-                rentAmount = rent ?: "0"
+    LaunchedEffect(userId) {
+        db.collection("tenants").document(userId)
+            .get()
+            .addOnSuccessListener { doc ->
+
+                rentAmount = doc.getString("rentAmount") ?: "0"
+                val nextDueRaw = doc.getString("nextRentDate")
 
                 if (nextDueRaw.isNullOrBlank()) {
                     nextDueFormatted = "Unknown"
@@ -56,8 +57,8 @@ fun TenantPaymentsHomeScreen(navController: NavHostController) {
                 }
 
                 val parsedDate = try {
-                    rawDateFormat.parse(nextDueRaw)
-                } catch (e: Exception) {
+                    firestoreDateParser.parse(nextDueRaw)
+                } catch (_: Exception) {
                     null
                 }
 
@@ -76,12 +77,10 @@ fun TenantPaymentsHomeScreen(navController: NavHostController) {
                             statusText = "Overdue by ${-diffDays} days"
                             statusColor = Color.Red
                         }
-
                         diffDays in 0..7 -> {
                             statusText = "Due Soon ($diffDays days left)"
                             statusColor = Color(0xFFFF9800)
                         }
-
                         else -> {
                             statusText = "Up to Date"
                             statusColor = Color(0xFF4CAF50)
@@ -97,17 +96,15 @@ fun TenantPaymentsHomeScreen(navController: NavHostController) {
             }
     }
 
+    /* ---------------- UI ---------------- */
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Payments", color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
-                        )
+                        Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -125,7 +122,8 @@ fun TenantPaymentsHomeScreen(navController: NavHostController) {
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
 
-            // 💳 Payment Summary Card
+            /* 💳 PAYMENT SUMMARY */
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(MaterialTheme.colorScheme.surfaceVariant)
@@ -155,7 +153,8 @@ fun TenantPaymentsHomeScreen(navController: NavHostController) {
                 }
             }
 
-            // 🔵 MAIN ACTION → Pay Rent
+            /* 🔵 PAY RENT */
+
             Button(
                 onClick = { navController.navigate(Screen.TenantPayment.route) },
                 modifier = Modifier.fillMaxWidth()
@@ -163,7 +162,8 @@ fun TenantPaymentsHomeScreen(navController: NavHostController) {
                 Text("Pay Rent")
             }
 
-            // 📄 Payment History Button
+            /* 📄 PAYMENT HISTORY */
+
             OutlinedButton(
                 onClick = { navController.navigate(Screen.PaymentHistory.route) },
                 modifier = Modifier.fillMaxWidth()
