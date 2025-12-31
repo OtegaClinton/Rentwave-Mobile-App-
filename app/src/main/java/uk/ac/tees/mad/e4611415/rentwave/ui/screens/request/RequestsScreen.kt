@@ -37,11 +37,27 @@ fun RequestsScreen(navController: NavHostController) {
             .get()
             .addOnSuccessListener { snapshot ->
 
+                if (snapshot.isEmpty) {
+                    isLoading = false
+                    return@addOnSuccessListener
+                }
+
                 val tempList = mutableListOf<Map<String, Any>>()
+                var processedCount = 0
+                val totalCount = snapshot.documents.size
 
                 snapshot.documents.forEach { doc ->
-                    val data = doc.data ?: return@forEach
-                    val tenantId = data["userId"]?.toString() ?: return@forEach
+                    val data = doc.data
+                    val tenantId = data?.get("userId")?.toString()
+
+                    if (data == null || tenantId == null) {
+                        processedCount++
+                        if (processedCount == totalCount) {
+                            requests = tempList
+                            isLoading = false
+                        }
+                        return@forEach
+                    }
 
                     db.collection("tenants").document(tenantId)
                         .get()
@@ -56,11 +72,23 @@ fun RequestsScreen(navController: NavHostController) {
                                     tenantDoc.getString("propertyName") ?: "Unknown"
 
                                 tempList.add(merged)
+                            }
+
+                            processedCount++
+
+                            if (processedCount == totalCount) {
                                 requests = tempList.sortedByDescending {
                                     (it["timestamp"] as? Timestamp)?.toDate()
                                 }
+                                isLoading = false
                             }
-                            isLoading = false
+                        }
+                        .addOnFailureListener {
+                            processedCount++
+                            if (processedCount == totalCount) {
+                                requests = tempList
+                                isLoading = false
+                            }
                         }
                 }
             }
@@ -113,7 +141,6 @@ fun RequestsScreen(navController: NavHostController) {
                         LandlordRequestCard(
                             request = request,
                             onClick = {
-                                // ✅ CORRECT SCREEN FOR LANDLORD
                                 navController.navigate(
                                     Screen.LandlordRequestDetails.passId(
                                         request["id"].toString()

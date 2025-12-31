@@ -4,7 +4,6 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -45,7 +44,6 @@ fun LandlordDashboardScreen(navController: NavHostController) {
     var firstName by remember { mutableStateOf("") }
     var profileImageUrl by remember { mutableStateOf("") }
     var showProfileOptions by remember { mutableStateOf(false) }
-
 
     /* ---------- IMAGE PICKER ---------- */
 
@@ -109,8 +107,7 @@ fun LandlordDashboardScreen(navController: NavHostController) {
                         }) {
                             Icon(Icons.Default.Notifications, null, tint = Color.White)
                         }
-                    }
-                    ,
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.primary
                     )
@@ -121,8 +118,7 @@ fun LandlordDashboardScreen(navController: NavHostController) {
             Column(
                 modifier = Modifier
                     .padding(padding)
-                    .fillMaxSize()
-                    .systemBarsPadding(),
+                    .fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
@@ -134,7 +130,7 @@ fun LandlordDashboardScreen(navController: NavHostController) {
                         contentDescription = "Profile Image",
                         modifier = Modifier
                             .size(100.dp)
-                            .clip(CircleShape)          // ✅ ONLY CHANGE
+                            .clip(CircleShape)
                             .clickable { showProfileOptions = true }
                     )
                 } else {
@@ -251,7 +247,9 @@ fun DrawerContent(
     ModalDrawerSheet(modifier = Modifier.width(260.dp)) {
 
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
 
@@ -289,7 +287,7 @@ fun DrawerContent(
         DrawerItem("Settings", Icons.Default.Settings, navController, Screen.Settings.route, drawerState)
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
-
+        
         DrawerItem(
             "Logout",
             Icons.Default.ExitToApp,
@@ -301,7 +299,8 @@ fun DrawerContent(
         ) {
             FirebaseAuth.getInstance().signOut()
             navController.navigate(Screen.Login.route) {
-                popUpTo(Screen.LandlordDashboard.route) { inclusive = true }
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
             }
         }
     }
@@ -330,4 +329,3 @@ fun DrawerItem(
         }
     )
 }
-

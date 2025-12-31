@@ -1,4 +1,4 @@
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const sendMail = require("./sendMail");
@@ -7,9 +7,8 @@ require("dotenv").config();
 // Initialize Firebase Admin once
 admin.initializeApp({
   credential: admin.credential.applicationDefault(),
-    storageBucket: "rentwave-ica.firebasestorage.app"
+  storageBucket: "rentwave-ica.firebasestorage.app"
 });
-
 
 exports.createTenant = onCall(async (request) => {
   console.log("📩 createTenant called:", request.data);
@@ -28,14 +27,17 @@ exports.createTenant = onCall(async (request) => {
     propertyName,
   } = request.data || {};
 
-  // 🔴 Only validate the truly required fields
+  // 🔴 Required fields validation
   if (!email || !tempPassword || !propertyId) {
-    console.error("❌ Missing required fields (email, password, or propertyId)");
-    throw new Error("Missing required fields");
+    console.error("❌ Missing required fields");
+    throw new HttpsError(
+      "invalid-argument",
+      "Missing required fields"
+    );
   }
 
   try {
-    // 1️⃣ Create Firebase Auth User for Tenant
+    // 1️⃣ Create Firebase Auth User
     const userRecord = await admin.auth().createUser({
       email,
       password: tempPassword,
@@ -44,7 +46,7 @@ exports.createTenant = onCall(async (request) => {
     const tenantId = userRecord.uid;
     const db = admin.firestore();
 
-    // 2️⃣ Save Tenant Data to Firestore (includes rent + property info)
+    // 2️⃣ Save Tenant Data
     const tenantData = {
       firstName: firstName || "",
       lastName: lastName || "",
@@ -52,7 +54,7 @@ exports.createTenant = onCall(async (request) => {
       phone: phone || "",
       propertyId,
       propertyName: propertyName || "",
-      landlordId: landlordId || "", // if null, store empty string instead of failing
+      landlordId: landlordId || "",
       rentAmount: rentAmount || "",
       rentStartDate: rentStartDate || "",
       nextRentDate: nextRentDate || "",
@@ -65,9 +67,9 @@ exports.createTenant = onCall(async (request) => {
 
     console.log("🔥 Tenant saved to Firestore:", tenantId);
 
-    // 3️⃣ Send Email via your Nodemailer Function (YOUR TEMPLATE KEPT 100%)
+    // 3️⃣ Email 
     const htmlContent = `
-      <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
@@ -159,31 +161,30 @@ exports.createTenant = onCall(async (request) => {
     </div>
 </body>
 </html>
-    `;
+`;
 
-    // Try sending email, but don't fail the whole function if email fails
     try {
       await sendMail({
         to: email,
         subject: "RentWave Tenant Login Details",
         html: htmlContent,
       });
-      console.log("📨 Email sent successfully");
     } catch (emailErr) {
-      console.error("⚠ Failed to send email, but tenant was created:", emailErr);
+      console.error("⚠ Email failed but tenant created:", emailErr);
     }
 
     return { success: true, tenantId };
 
   } catch (error) {
     console.error("❌ Error creating tenant:", error);
-    throw new Error(error.message || "Unknown error creating tenant");
+
+    // ✅ FINAL FIX — correct error type
+    throw new HttpsError(
+      "internal",
+      error.message || "Failed to create tenant"
+    );
   }
 });
 
-
-
 exports.sendPaymentReceipt = require("./sendPaymentReceipt").sendPaymentReceipt;
-
 exports.sendRentDueReminders = require("./sendRentDueReminders").sendRentDueReminders;
-
