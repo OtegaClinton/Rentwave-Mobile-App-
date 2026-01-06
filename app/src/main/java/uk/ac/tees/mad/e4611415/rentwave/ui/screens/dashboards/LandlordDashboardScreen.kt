@@ -287,7 +287,7 @@ fun DrawerContent(
         DrawerItem("Settings", Icons.Default.Settings, navController, Screen.Settings.route, drawerState)
 
         Divider(modifier = Modifier.padding(vertical = 8.dp))
-        
+
         DrawerItem(
             "Logout",
             Icons.Default.ExitToApp,
